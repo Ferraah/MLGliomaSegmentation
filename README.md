@@ -1,1 +1,6 @@
 # MLGliomaSegmentation
+
+Running on iris:
+'''
+
+'''
