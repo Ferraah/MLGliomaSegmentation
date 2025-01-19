@@ -10,10 +10,10 @@ from model_trainer import ModelTrainer
 from monai.metrics import DiceMetric
 
 
-def train(max_epochs=2):
+def train(max_epochs=2, num_images=10):
     print("[TRAIN] Num available threads: ", torch.get_num_threads())
 
-    training_loader, validation_loader, testing_loader = GliomaDataLoader.get_loaders()
+    training_loader, validation_loader, testing_loader = GliomaDataLoader.get_loaders(num_images=num_images)
 
     device = torch.device("cpu")
     model = UNet(

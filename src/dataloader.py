@@ -11,7 +11,11 @@ from monai.transforms import (
     ResizeD,
     ToTensord,
     EnsureTyped,
-    AsDiscreted
+    AsDiscreted,
+    NormalizeIntensityd,
+    RandFlipd,
+    RandScaleIntensityd,
+    RandShiftIntensityd,
 )
 import json
 
@@ -39,7 +43,7 @@ class GliomaDataLoader:
         return train_dataset, val_dataset, test_dataset
 
     @staticmethod
-    def get_loaders():
+    def get_loaders(num_images=-1):
         path = kagglehub.dataset_download("darksteeldragon/brats2020-nifti-format-for-deepmedic")
         path = os.path.join(path, "archive", "BraTS2020_TrainingData", "MICCAI_BraTS2020_TrainingData")
 
@@ -56,8 +60,10 @@ class GliomaDataLoader:
         assert(len(images) > 0)
         assert(len(images) == len(labels))
 
-        images = images[:10]
-        labels = labels[:10]
+        # Limit number of input images 
+        if num_images != -1 and num_images < len(images):
+            images = images[:num_images]
+            labels = labels[:num_images]
 
         # Define the transforms
         transform = Compose([
@@ -69,6 +75,17 @@ class GliomaDataLoader:
             AsDiscreted(keys=['label'], to_onehot=5)  # Convert the labels to one-hot
         ])
 
+        augments = Compose(
+        [
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+            RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+            NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+            RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+            RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+        ])
+
+        transform = Compose([transform, augments])
         # Create the dataset and data loader
         data_dicts = [{'image': image, 'label': label} for image, label in zip(images, labels)]
         dataset = Dataset(data=data_dicts, transform=transform)
