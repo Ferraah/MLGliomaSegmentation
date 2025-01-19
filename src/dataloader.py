@@ -1,8 +1,8 @@
 import os
 import kagglehub
-import nibabel as nib
 from monai.data import Dataset, DataLoader
 from monai.utils import set_determinism
+import torch
 import numpy as np
 from monai.transforms import (
     Compose,
@@ -13,25 +13,36 @@ from monai.transforms import (
     EnsureTyped,
     AsDiscreted
 )
+import json
 
 set_determinism(seed=42)
 
 class GliomaDataLoader:
 
+    # Split the dataset into training, validation, and evaluation sets with custom percentages
     @staticmethod
-    def get_training_loader():
+    def split_dataset(dataset, train_pct, val_pct, save_path):
+        train_size = int(train_pct * len(dataset))
+        val_size = int(val_pct * len(dataset))
+        test_size = len(dataset) - train_size - val_size
+        train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, val_size, test_size])
+
+        # Save the indices to files
+        split_indices = {
+            'train': train_dataset.indices,
+            'val': val_dataset.indices,
+            'test': test_dataset.indices
+        }
+        with open(os.path.join(save_path, 'split_indices.json'), 'w') as f:
+            json.dump(split_indices, f)
+
+        return train_dataset, val_dataset, test_dataset
+
+    @staticmethod
+    def get_loaders():
         path = kagglehub.dataset_download("darksteeldragon/brats2020-nifti-format-for-deepmedic")
         path = os.path.join(path, "archive", "BraTS2020_TrainingData", "MICCAI_BraTS2020_TrainingData")
-        return GliomaDataLoader.get_loader(path)
 
-    @staticmethod
-    def get_validation_loader():
-        path = kagglehub.dataset_download("darksteeldragon/brats2020-nifti-format-for-deepmedic")
-        path = os.path.join(path, "archive", "BraTS2020_ValidationData", "MICCAI_BraTS2020_ValidationData")
-        return GliomaDataLoader.get_loader(path)
-
-    @staticmethod
-    def get_loader(path):
         patients_folders = os.listdir(path)
         images = []
         labels = []
@@ -45,10 +56,10 @@ class GliomaDataLoader:
         assert(len(images) > 0)
         assert(len(images) == len(labels))
 
-        images = images[:2]
-        labels = labels[:2]
-        # Define the transforms
+        images = images[:10]
+        labels = labels[:10]
 
+        # Define the transforms
         transform = Compose([
             LoadImaged(keys=['image', 'label'], image_only=True),  # Load the images
             EnsureChannelFirstd(keys=['image', 'label']),  # Ensure the channels are first  
@@ -61,5 +72,18 @@ class GliomaDataLoader:
         # Create the dataset and data loader
         data_dicts = [{'image': image, 'label': label} for image, label in zip(images, labels)]
         dataset = Dataset(data=data_dicts, transform=transform)
-        loader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=1)
-        return loader
+
+        train_pct = 0.333
+        val_pct = 0.333
+
+        save_path = './'  # Change this to your desired save path
+        os.makedirs(save_path, exist_ok=True)
+        
+        train_dataset, val_dataset, test_dataset = GliomaDataLoader.split_dataset(dataset, train_pct, val_pct, save_path)
+        print("[DATA LOADER] Training set size:", len(train_dataset))
+        print("[DATA LOADER] Validation set size:", len(val_dataset))
+        print("[DATA LOADER] Test set size:", len(test_dataset))
+        training_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=1)
+        validation_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=1)
+        test_loader = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
+        return training_loader, validation_loader, test_loader
