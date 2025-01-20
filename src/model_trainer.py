@@ -2,7 +2,9 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import time
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
+from torch.utils.tensorboard import SummaryWriter
+
 
 
 class ModelTrainer:
@@ -14,7 +16,11 @@ class ModelTrainer:
         self.scheduler = scheduler
         self.metrics = metrics or {}
         self.model.to(self.device)
-        self.scaler = GradScaler()  # For mixed precision training
+        self.scaler = GradScaler("cuda")  # For mixed precision training
+        self.writer = SummaryWriter()
+        self.iterations = 0
+        print(f"[MODEL_TRAINER] Using device: {self.device}")
+        
 
     def train(
         self, train_loader, val_loader=None, epochs=10, log_interval=10, save_path=None, accumulation_steps=1
@@ -27,11 +33,17 @@ class ModelTrainer:
             epoch_start = time.time()
 
             # Training phase
+            print("[MODEL_TRAINER] Training...")            
             self.model.train()
+
             train_loss = 0.0
             for step, batch in enumerate(tqdm(train_loader, desc="Training"), 1):
+                self.iterations += 1
+
+                # Send data to device
                 inputs, labels = batch["image"].to(self.device), batch["label"].to(self.device)
-                with autocast():  # Mixed precision
+
+                with autocast("cuda", enabled=False):  # Mixed precision
                     outputs = self.model(inputs)
                     loss = self.loss_fn(outputs, labels) / accumulation_steps
 
@@ -45,6 +57,7 @@ class ModelTrainer:
                 train_loss += loss.item() * accumulation_steps
                 if step % log_interval == 0:
                     print(f"[MODEL_TRAINER] Step {step}/{len(train_loader)}, Loss: {loss.item() * accumulation_steps:.4f}")
+                    self.writer.add_scalar("Loss/train", loss.item(), self.iterations)
 
             train_loss /= len(train_loader)
             history["train_loss"].append(train_loss)

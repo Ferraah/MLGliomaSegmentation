@@ -15,7 +15,7 @@ def test(num_images=10):
 
     _, _, testing_loader = GliomaDataLoader.get_loaders(num_images=num_images)
 
-    device = torch.device("cpu")
+    device = torch.device("cuda")
     model = UNet(
         spatial_dims=3,
         in_channels=1,

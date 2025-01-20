@@ -46,11 +46,17 @@ class GliomaDataLoader:
     def get_loaders(num_images=-1):
         path = kagglehub.dataset_download("darksteeldragon/brats2020-nifti-format-for-deepmedic")
         path = os.path.join(path, "archive", "BraTS2020_TrainingData", "MICCAI_BraTS2020_TrainingData")
-
+        
         patients_folders = os.listdir(path)
+
         images = []
         labels = []
         for folder in patients_folders:
+            # check if the folder is a directory
+            if not os.path.isdir(os.path.join(path, folder)):
+                continue
+
+            print(f"Loading data from {folder}")
             images.append(os.path.join(path, folder, f"{folder}_t1.nii"))
             labels.append(os.path.join(path, folder, f"{folder}_seg.nii"))
 
@@ -69,7 +75,7 @@ class GliomaDataLoader:
         transform = Compose([
             LoadImaged(keys=['image', 'label'], image_only=True),  # Load the images
             EnsureChannelFirstd(keys=['image', 'label']),  # Ensure the channels are first  
-            ResizeD(keys=['image', 'label'], spatial_size=(128, 128, 128)),  # Resize the images
+            ResizeD(keys=['image', 'label'], spatial_size=(200, 200, 200)),  # Resize the images
             ToTensord(keys=['image', 'label']),  # Convert the images to tensors
             EnsureTyped(keys=['image', 'label'], dtype=np.float32),  # Ensure the images are float32
             AsDiscreted(keys=['label'], to_onehot=5)  # Convert the labels to one-hot
@@ -100,7 +106,7 @@ class GliomaDataLoader:
         print("[DATA LOADER] Training set size:", len(train_dataset))
         print("[DATA LOADER] Validation set size:", len(val_dataset))
         print("[DATA LOADER] Test set size:", len(test_dataset))
-        training_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=1)
+        training_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=1)
         validation_loader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=1)
         test_loader = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=1)
         return training_loader, validation_loader, test_loader
