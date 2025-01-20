@@ -90,8 +90,8 @@ class GliomaDataLoader:
         data_dicts = [{'image': image, 'label': label} for image, label in zip(images, labels)]
         dataset = Dataset(data=data_dicts, transform=transform)
 
-        train_pct = 0.333
-        val_pct = 0.333
+        train_pct = 0.7
+        val_pct = 0.1
 
         save_path = './'  # Change this to your desired save path
         os.makedirs(save_path, exist_ok=True)

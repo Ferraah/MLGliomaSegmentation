@@ -9,11 +9,11 @@ from model_trainer import ModelTrainer
 from monai.metrics import DiceMetric
 
 
-def test():
+def test(num_images=10):
 
     print("[TEST] Num available threads: ", torch.get_num_threads())
 
-    _, _, testing_loader = GliomaDataLoader.get_loaders()
+    _, _, testing_loader = GliomaDataLoader.get_loaders(num_images=num_images)
 
     device = torch.device("cpu")
     model = UNet(
