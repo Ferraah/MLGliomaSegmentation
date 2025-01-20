@@ -1,1 +1,4 @@
 lightning_logs/
+*.json
+src/__pycache__/
+best_model.pth

@@ -55,6 +55,10 @@ class GliomaSegmentationModel(pl.LightningModule):
         dice_score = self.metrics["Dice"].aggregate().item()
         self.metrics["Dice"].reset()
         self.log('val_dice', dice_score, on_step=False, on_epoch=True, prog_bar=True)
+        # Save the best model based on validation dice score
+        if not hasattr(self, 'best_val_dice') or dice_score > self.best_val_dice:
+            self.best_val_dice = dice_score
+            torch.save(self.model.state_dict(), 'best_model.pth')
 
 
     def configure_optimizers(self):

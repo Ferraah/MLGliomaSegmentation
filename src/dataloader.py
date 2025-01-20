@@ -16,6 +16,9 @@ from monai.transforms import (
     RandFlipd,
     RandScaleIntensityd,
     RandShiftIntensityd,
+    RandRotate90d,
+    RandZoomd,
+
 )
 import json
 
@@ -75,7 +78,7 @@ class GliomaDataLoader:
         transform = Compose([
             LoadImaged(keys=['image', 'label'], image_only=True),  # Load the images
             EnsureChannelFirstd(keys=['image', 'label']),  # Ensure the channels are first  
-            ResizeD(keys=['image', 'label'], spatial_size=(200, 200, 200)),  # Resize the images
+            ResizeD(keys=['image', 'label'], spatial_size=(128, 128, 128)),  # Resize the images
             ToTensord(keys=['image', 'label']),  # Convert the images to tensors
             EnsureTyped(keys=['image', 'label'], dtype=np.float32),  # Ensure the images are float32
             AsDiscreted(keys=['label'], to_onehot=5)  # Convert the labels to one-hot
@@ -89,6 +92,9 @@ class GliomaDataLoader:
             NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
             RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+            RandRotate90d(keys=["image", "label"], prob=0.5, max_k=3),
+            RandZoomd(keys=["image", "label"], prob=0.5, min_zoom=0.8, max_zoom=1.2),
+            # RandAffined(keys=["image", "label"], prob=0.5, rotate_range=0.1, scale_range=0.1, translate_range=10),
         ])
 
         transform = Compose([transform, augments])
@@ -99,7 +105,7 @@ class GliomaDataLoader:
         train_pct = 0.7
         val_pct = 0.1
 
-        save_path = './'  # Change this to your desired save path
+        save_path = './'
         os.makedirs(save_path, exist_ok=True)
         
         train_dataset, val_dataset, test_dataset = GliomaDataLoader.split_dataset(dataset, train_pct, val_pct, save_path)
