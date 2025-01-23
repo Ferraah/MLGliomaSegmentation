@@ -1,0 +1,9 @@
+monai
+kagglehub
+nibabel
+torch
+torchvision
+torchaudio
+lightning
+lightning[extra]
+tensorboard
