@@ -8,7 +8,7 @@ import random
 import nibabel
 
 sns.set()
-from dataloader import get_data_path, get_data_loader
+from GliomaDataModule import get_data_path, get_data_loader
 
 # Load the data
 data_path = get_data_path()
