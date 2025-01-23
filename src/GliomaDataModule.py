@@ -85,23 +85,23 @@ class GliomaDataModule(pl.LightningDataModule):
                 
                 if self.channels == 1:
                     data_pairs.append({
-                        "image": t1_file,
+                        "image": t1_native_file,
                         "label": seg_file
                     })
                 elif self.channels == 2:
                     data_pairs.append({
-                        "image": [t1_file, t2_file],
+                        "image": [t1_native_file, t2_file],
                         "label": seg_file
                     })
                 elif self.channels == 3:
                     data_pairs.append({
-                        "image": [t1_file, t2_file, flair_file],
+                        "image": [t1_native_file, t2_file, flair_file],
                         "label": seg_file
                     })
                 else:
                     data_pairs.append({
                         # "image": [t1_file, t2_file, flair_file, t1_native_file],  # Include all modalities
-                        "image": [t1_file, t2_file, flair_file, t1_native_file],
+                        "image": [t1_native_file, t2_file, flair_file, t1_file],
                         "label": seg_file
                     })
         
