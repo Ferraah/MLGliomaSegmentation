@@ -19,7 +19,7 @@ def train_model(channels=1):
     )
     
     checkpoint_callback = ModelCheckpoint(
-        dirpath=f'checkpoints-{channels}-par',
+        dirpath=f'checkpoints-{channels}-weighted',
         filename='glioma_segmentation-{epoch:02d}-{val_loss:.2f}',
         monitor='val_loss',
         mode='min',
@@ -32,7 +32,7 @@ def train_model(channels=1):
         max_epochs=1000,
         callbacks=[early_stopping, checkpoint_callback],
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
-        devices=3,
+        devices=1,
         strategy='ddp',
         logger=True
     )
@@ -42,4 +42,4 @@ def train_model(channels=1):
 
 
 if __name__ == '__main__':
-    train_model(channels=1)
+    train_model(channels=4)

@@ -9,8 +9,12 @@ import pytorch_lightning as pl
 import yaml
 from matplotlib.colors import ListedColormap
 
+
+
 # Import the classes from your training script
 from train import GliomaDataModule, GliomaSegmentation
+import monai
+from monai.metrics import DiceMetric
 
 def load_splits():
     """Load the train/val/test splits from yaml file"""
@@ -29,7 +33,7 @@ def create_segmentation_colormap():
     ]
     return ListedColormap(colors)
 
-def visualize_results(model_path, data_module, num_samples=5, slice_idx=64):
+def visualize_results(model_path, data_module, num_samples=5, slice_idx=100):
     """
     Visualize results from the trained model.
     Args:
@@ -44,7 +48,7 @@ def visualize_results(model_path, data_module, num_samples=5, slice_idx=64):
     model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Get test dataloader
-    data_module.setup(stage='test')
+    # data_module.setup(stage='test')
     test_loader = data_module.test_dataloader()
 
     # Create output directory
@@ -61,20 +65,28 @@ def visualize_results(model_path, data_module, num_samples=5, slice_idx=64):
             # Move data to device
             images, labels = batch["image"], batch["label"]
             images = images.to(model.device)
+            labels = labels.to(model.device)
             
             # Get predictions
             outputs = model(images)
-            
+
             # Convert to class indices
             pred_masks = torch.argmax(outputs, dim=1)
             true_masks = torch.argmax(labels, dim=1)
-            
+
+            # Compute Dice loss
+
+            dice_metric = DiceMetric(include_background=True, reduction="mean")
+            dice_metric(outputs, labels)
+            dice_score = dice_metric.aggregate().item()
+            print(f'Dice score for sample {batch_idx + 1}: {dice_score:.4f}')
+
+
             # Create figure for this sample
             fig, axes = plt.subplots(1, 3, figsize=(15, 5))
             fig.suptitle(f'Sample {batch_idx + 1}', fontsize=16)
 
             # Display T1 modality
-            print(images.shape)
             axes[0].imshow(images[0, 0, :, :, slice_idx].cpu().numpy(), cmap='gray')
             axes[0].set_title('T1 - Original')
             
@@ -118,14 +130,12 @@ def visualize_results(model_path, data_module, num_samples=5, slice_idx=64):
             print(f'Saved visualization for sample {batch_idx + 1}')
 
 def main():
-    # Load the splits
-    splits = load_splits()
-    
     # Initialize data module with the test split
-    data_module = GliomaDataModule(batch_size=1)  # Use batch_size=1 for inference
-    
-    # Path to your trained model checkpoint
-    checkpoint_path = '/home/users/lguffanti/MLGliomaSegmentation/checkpoints-2-par/glioma_segmentation-epoch=43-val_loss=0.42.ckpt'  # Update this path
+    data_module = GliomaDataModule(batch_size=1, channels=4)  # Use batch_size=1 for inference
+    data_module.load_splits('splits/splits-4-training.yaml', 'splits/splits-4-validation.yaml', 'splits/splits-4-test.yaml', 'test')
+
+
+    checkpoint_path = '/home/users/lguffanti/MLGliomaSegmentation/glioma_segmentation-epoch=21-val_loss=0.41.ckpt'  
     
     # Generate visualizations
     visualize_results(checkpoint_path, data_module)

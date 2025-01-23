@@ -41,22 +41,22 @@ class GliomaDataModule(pl.LightningDataModule):
         self.train_transforms = Compose([
             LoadImaged(keys=["image", "label"], image_only=False),
             EnsureChannelFirstd(keys=["image", "label"]),
-            ResizeD(keys=['image', 'label'], spatial_size=(192, 192, 192)),  # Resize the images
+            ResizeD(keys=['image', 'label'], spatial_size=(128, 128, 128)),  # Resize the images
             ScaleIntensityd(keys=["image"]),
             NormalizeIntensityd(keys=["image"]),
             RandRotate90d(keys=["image", "label"], prob=0.5),
             RandFlipd(keys=["image", "label"], prob=0.5),
             RandZoomd(keys=["image", "label"], prob=0.3, min_zoom=0.8, max_zoom=1.2),
+            RandGaussianNoised(keys=["image"], prob=0.2, mean=0.0, std=0.1),
             RandAffined(keys=["image", "label"], prob=0.3),
             AsDiscreted(keys=["label"], to_onehot=5),
             ToTensord(keys=["image", "label"]),
-            RandGaussianNoised(keys=["image"], prob=0.2, mean=0.0, std=0.1)
         ])
 
         self.val_transforms = Compose([
             LoadImaged(keys=["image", "label"]),
             EnsureChannelFirstd(keys=["image", "label"]),
-            ResizeD(keys=['image', 'label'], spatial_size=(192, 192, 192)),  # Resize the images
+            ResizeD(keys=['image', 'label'], spatial_size=(128, 128, 128)),  # Resize the images
             ScaleIntensityd(keys=["image"]),
             NormalizeIntensityd(keys=["image"]),
             AsDiscreted(keys=["label"], to_onehot=5),
@@ -133,8 +133,29 @@ class GliomaDataModule(pl.LightningDataModule):
             'validation': [d['image'] for d in val_dicts],
             'test': [d['image'] for d in test_dicts]
         }
-        with open(f'splits-{self.channels}.yaml', 'w') as f:
-            yaml.dump(splits, f)
+
+        def extract_id(file_path):
+            base_name = os.path.basename(file_path)
+            parts = base_name.split('_')
+            return '_'.join(parts[1:-1])
+
+        splits_ids = {
+            'train': list(set([int(extract_id(d['image'][0] if isinstance(d['image'], list) else d['image']).split('_')[1]) for d in train_dicts])),
+            'validation': list(set([int(extract_id(d['image'][0] if isinstance(d['image'], list) else d['image']).split('_')[1]) for d in val_dicts])),
+            'test': list(set([int(extract_id(d['image'][0] if isinstance(d['image'], list) else d['image']).split('_')[1]) for d in test_dicts]))
+        }
+
+
+        with open(f'splits/splits-{self.channels}-training.yaml', 'w') as f:
+            yaml.dump(splits_ids["train"], f)
+        
+        with open(f'splits/splits-{self.channels}-validation.yaml', 'w') as f:
+            yaml.dump(splits_ids["validation"], f)
+        
+        with open(f'splits/splits-{self.channels}-test.yaml', 'w') as f:
+            yaml.dump(splits_ids["test"], f)
+
+        exit()
         
         # Create MONAI datasets
         if stage == 'fit' or stage is None:
@@ -168,3 +189,97 @@ class GliomaDataModule(pl.LightningDataModule):
             num_workers=1,
             pin_memory=True
         )
+
+    def load_splits(self, train_file, val_file, test_file, stage):
+        
+        # Download dataset
+        logger.info("Downloading BraTS2020 dataset...")
+        base_path = kagglehub.dataset_download(
+            "darksteeldragon/brats2020-nifti-format-for-deepmedic"
+        )
+        
+        # Set correct path to training data
+        self.data_dir = os.path.join(
+            base_path,
+            "archive",
+            "BraTS2020_TrainingData",
+            "MICCAI_BraTS2020_TrainingData"
+        )
+
+        # Load the splits from yaml file
+        ids_train = []
+        ids_val = []
+        ids_test = []
+
+        with open(train_file, 'r') as f:
+            ids_train = yaml.safe_load(f)
+        
+        with open(val_file, 'r') as f:
+            ids_val = yaml.safe_load(f)
+
+        with open(test_file, 'r') as f:
+            ids_test = yaml.safe_load(f)
+
+        directory = self.data_dir
+        for subj in ids_train:
+            subject_dir = os.path.join(directory, f"BraTS20_Training_{subj:03d}")
+            subject_id = f'BraTS20_Training_{subj:03d}'
+
+            t1_file = os.path.join(subject_dir, f"{subject_id}_t1ce.nii")
+            t2_file = os.path.join(subject_dir, f"{subject_id}_t2.nii")
+            flair_file = os.path.join(subject_dir, f"{subject_id}_flair.nii")
+            t1_native_file = os.path.join(subject_dir, f"{subject_id}_t1.nii")
+            seg_file = os.path.join(subject_dir, f"{subject_id}_seg.nii")
+
+        for subj in ids_val:
+            subject_dir = os.path.join(directory, f"BraTS20_Training_{subj:03d}")
+            subject_id = f'BraTS20_Training_{subj:03d}'
+
+            t1_file = os.path.join(subject_dir, f"{subject_id}_t1ce.nii")
+            t2_file = os.path.join(subject_dir, f"{subject_id}_t2.nii")
+            flair_file = os.path.join(subject_dir, f"{subject_id}_flair.nii")
+            t1_native_file = os.path.join(subject_dir, f"{subject_id}_t1.nii")
+            seg_file = os.path.join(subject_dir, f"{subject_id}_seg.nii")
+        
+        for subj in ids_test:
+            subject_dir = os.path.join(directory, f"BraTS20_Training_{subj:03d}")
+            subject_id = f'BraTS20_Training_{subj:03d}'
+
+            t1_file = os.path.join(subject_dir, f"{subject_id}_t1ce.nii")
+            t2_file = os.path.join(subject_dir, f"{subject_id}_t2.nii")
+            flair_file = os.path.join(subject_dir, f"{subject_id}_flair.nii")
+            t1_native_file = os.path.join(subject_dir, f"{subject_id}_t1.nii")
+            seg_file = os.path.join(subject_dir, f"{subject_id}_seg.nii")
+
+        def create_data_pairs(ids):
+            data_pairs = []
+            for subj in ids:
+                subject_dir = os.path.join(directory, f"BraTS20_Training_{subj:03d}")
+                subject_id = f'BraTS20_Training_{subj:03d}'
+
+                t1_file = os.path.join(subject_dir, f"{subject_id}_t1ce.nii")
+                t2_file = os.path.join(subject_dir, f"{subject_id}_t2.nii")
+                flair_file = os.path.join(subject_dir, f"{subject_id}_flair.nii")
+                t1_native_file = os.path.join(subject_dir, f"{subject_id}_t1.nii")
+                seg_file = os.path.join(subject_dir, f"{subject_id}_seg.nii")
+
+                if self.channels == 1:
+                    data_pairs.append({"image": t1_native_file, "label": seg_file})
+                elif self.channels == 2:
+                    data_pairs.append({"image": [t1_native_file, t2_file], "label": seg_file})
+                elif self.channels == 3:
+                    data_pairs.append({"image": [t1_native_file, t2_file, flair_file], "label": seg_file})
+                else:
+                    data_pairs.append({"image": [t1_native_file, t2_file, flair_file, t1_file], "label": seg_file})
+            return data_pairs
+
+        train_data_pairs = create_data_pairs(ids_train)
+        val_data_pairs = create_data_pairs(ids_val)
+        test_data_pairs = create_data_pairs(ids_test)
+
+        if stage == 'fit' or stage is None:
+            self.train_ds = Dataset(train_data_pairs, transform=self.train_transforms)
+            self.val_ds = Dataset(val_data_pairs, transform=self.val_transforms)
+        
+        if stage == 'test' or stage is None:
+            self.test_ds = Dataset(test_data_pairs, transform=self.val_transforms)
